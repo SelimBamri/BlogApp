@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 
 namespace BlogApp.Models.Entities
@@ -21,9 +20,8 @@ namespace BlogApp.Models.Entities
         [DataType(DataType.DateTime)]
         public required DateTime Created { get; set; }
 
-        public string AuthorFk { get; set; }
+        public required string AuthorFk { get; set; }
         [ForeignKey("AuthorFk")]
         public required virtual User Author { get; set; }
-
     }
 }
