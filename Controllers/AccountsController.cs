@@ -1,4 +1,5 @@
-﻿using BlogApp.Models.Dtos;
+﻿using BlogApp.JwtFeatures;
+using BlogApp.Models.Dtos;
 using BlogApp.Models.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -11,9 +12,11 @@ namespace BlogApp.Controllers
     public class AccountsController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
-        public AccountsController(UserManager<User> userManager)
+        private readonly JwtHandler _jwtHandler;
+        public AccountsController(UserManager<User> userManager, JwtHandler jwtHandler)
         {
             this._userManager = userManager;
+            this._jwtHandler = jwtHandler;
         }
 
         [HttpPost("register")]
@@ -36,6 +39,17 @@ namespace BlogApp.Controllers
                 return BadRequest(new RegisterUserResponseDto { Errors = errors});
             }
             return StatusCode(201);
+        }
+
+        [HttpPost("authenticate")]
+        public async Task<IActionResult> AuthenticateUser([FromBody] AuthenticateUserDto authenticateUserDto)
+        {
+            var user = await _userManager.FindByEmailAsync(authenticateUserDto.Email!);
+            if (user == null || !await _userManager.CheckPasswordAsync(user, authenticateUserDto.Password!)) { 
+                return Unauthorized(new AuthResponseDto { ErrorMessage = "Invalid authentication credentials."});
+            }
+            var token = _jwtHandler.CreateToken(user);
+            return Ok(new AuthResponseDto { IsAuthenticated = true, Token = token });
         }
     }
 }
