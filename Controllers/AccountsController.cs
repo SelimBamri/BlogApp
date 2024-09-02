@@ -37,6 +37,9 @@ namespace BlogApp.Controllers
                 LastName = input.LastName,
                 DateOfBirth = input.DateOfBirth,
             };
+            if (input.ProfilePhoto != null) { 
+                user.ProfilePhoto = Convert.FromBase64String(input.ProfilePhoto);
+            }
             var result = await _userManager.CreateAsync(user, input.Password);
             if (!result.Succeeded) { 
                 var errors = result.Errors.Select(e => e.Description);
@@ -60,7 +63,7 @@ namespace BlogApp.Controllers
         [Authorize]
         public async Task<IActionResult> DeleteMyAccount()
         {
-            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Email)?.Value);
+            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Name)?.Value);
             if (user == null)
             {
                 return NotFound("User not found");
@@ -70,7 +73,7 @@ namespace BlogApp.Controllers
         }
 
         [HttpGet]
-        [Route("{id:string}")]
+        [Route("{id}")]
         public IActionResult GetUserById(string id)
         {
             var user = _userManager.FindByIdAsync(id).Result;
@@ -92,9 +95,9 @@ namespace BlogApp.Controllers
 
         [HttpGet]
         [Authorize]
-        public IActionResult GetAuthenticatedUser(string id)
+        public async Task<IActionResult> GetAuthenticatedUser()
         {
-            var user = _userManager.FindByIdAsync(id).Result;
+            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Name)?.Value);
 
             if (user == null)
             {
@@ -110,6 +113,68 @@ namespace BlogApp.Controllers
                 Email = user.Email
             };
             return Ok(resp);
+        }
+
+        [HttpPut]
+        [Authorize]
+        public async Task<IActionResult> UpdateMyProfile(UpdateMyProfileRequestDto input)
+        {
+            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Name)?.Value);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+            if (input.FirstName != null)
+            {
+                user.FirstName = input.FirstName;
+            }
+            if (input.LastName != null)
+            {
+                user.LastName = input.LastName;
+            }
+            if (input.DateOfBirth != null)
+            {
+                user.DateOfBirth = input.DateOfBirth.Value;
+            }
+            if (input.Email != null)
+            {
+                user.Email = input.Email;
+            }
+            if (input.ProfilePhoto != null) {
+                user.ProfilePhoto = Convert.FromBase64String(input.ProfilePhoto);
+            }
+            if (input.UserName != null)
+            {
+                user.UserName = input.UserName;
+            }
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description);
+                return BadRequest(new { Errors = errors });
+            }
+            var token = _jwtHandler.CreateToken(user);
+            return Ok(new { Token = token });
+        }
+
+        [HttpPut]
+        [Route("password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword(UpdateMyPasswordDto input)
+        {
+            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Name)?.Value);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+            var passwordChangeResult = await _userManager.ChangePasswordAsync(user, input.CurrentPassword, input.NewPassword);
+            if (!passwordChangeResult.Succeeded)
+            {
+                var errors = passwordChangeResult.Errors.Select(e => e.Description);
+                return BadRequest(new { Errors = errors });
+            }
+            var token = _jwtHandler.CreateToken(user);
+            return Ok(new { Token = token });
         }
     }
 }
