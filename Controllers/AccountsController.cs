@@ -1,9 +1,11 @@
-﻿using BlogApp.JwtFeatures;
+﻿using BlogApp.Data;
+using BlogApp.JwtFeatures;
 using BlogApp.Models.Dtos;
 using BlogApp.Models.Entities;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BlogApp.Controllers
 {
@@ -13,10 +15,12 @@ namespace BlogApp.Controllers
     {
         private readonly UserManager<User> _userManager;
         private readonly JwtHandler _jwtHandler;
-        public AccountsController(UserManager<User> userManager, JwtHandler jwtHandler)
+        private readonly AppDbContext _appDbContext;
+        public AccountsController(UserManager<User> userManager, JwtHandler jwtHandler, AppDbContext appDbContext)
         {
             this._userManager = userManager;
             this._jwtHandler = jwtHandler;
+            this._appDbContext = appDbContext;
         }
 
         [HttpPost("register")]
@@ -50,6 +54,62 @@ namespace BlogApp.Controllers
             }
             var token = _jwtHandler.CreateToken(user);
             return Ok(new AuthResponseDto { IsAuthenticated = true, Token = token });
+        }
+
+        [HttpDelete]
+        [Authorize]
+        public async Task<IActionResult> DeleteMyAccount()
+        {
+            var user = await _userManager.FindByEmailAsync(User.FindFirst(ClaimTypes.Email)?.Value);
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+            await _userManager.DeleteAsync(user);
+            return Ok("User deleted successfully");
+        }
+
+        [HttpGet]
+        [Route("{id:string}")]
+        public IActionResult GetUserById(string id)
+        {
+            var user = _userManager.FindByIdAsync(id).Result;
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+            var resp = new GetProfileDto()
+            {
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                DateOfBirth = user.DateOfBirth,
+                ProfilePhoto = user.ProfilePhoto,
+                UserName = user.UserName
+            };
+            return Ok(resp);
+        }
+
+        [HttpGet]
+        [Authorize]
+        public IActionResult GetAuthenticatedUser(string id)
+        {
+            var user = _userManager.FindByIdAsync(id).Result;
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+            var resp = new GetMyProfileDto()
+            {
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                DateOfBirth = user.DateOfBirth,
+                ProfilePhoto = user.ProfilePhoto,
+                UserName = user.UserName,
+                Email = user.Email
+            };
+            return Ok(resp);
         }
     }
 }

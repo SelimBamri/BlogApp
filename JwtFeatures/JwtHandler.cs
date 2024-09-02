@@ -33,7 +33,7 @@ namespace BlogApp.JwtFeatures
 
         private List<Claim> GetClaims(User user) {
             var claims = new List<Claim> {
-                new Claim(ClaimTypes.Name, user.UserName)
+                new Claim(ClaimTypes.Name, user.Email)
             };
             return claims;
         }
@@ -44,7 +44,7 @@ namespace BlogApp.JwtFeatures
                 issuer: _jwtSettings["validIssuer"],
                 audience: _jwtSettings["validAudience"],
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(Convert.ToDouble(_jwtSettings["expiryMinutes"])),
+                expires: DateTime.Now.AddMinutes(Convert.ToDouble(_jwtSettings["expiryInMinutes"])),
                 signingCredentials: signingCredentials
                 );
             return tokenOptions;
