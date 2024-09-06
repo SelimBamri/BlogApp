@@ -5,6 +5,8 @@ using BlogApp.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace BlogApp.Controllers
@@ -37,15 +39,29 @@ namespace BlogApp.Controllers
                 LastName = input.LastName,
                 DateOfBirth = input.DateOfBirth,
             };
-            if (input.ProfilePhoto != null) { 
-                user.ProfilePhoto = Convert.FromBase64String(input.ProfilePhoto);
+            if (input.ProfilePhoto != null) {
+                string base64Data = input.ProfilePhoto.Substring(input.ProfilePhoto.IndexOf(',') + 1);
+                user.ProfilePhoto = Convert.FromBase64String(base64Data);
             }
-            var result = await _userManager.CreateAsync(user, input.Password);
-            if (!result.Succeeded) { 
-                var errors = result.Errors.Select(e => e.Description);
-                return BadRequest(new RegisterUserResponseDto { Errors = errors});
+            try
+            {
+                var result = await _userManager.CreateAsync(user, input.Password);
+                if (!result.Succeeded) { 
+                    var errors = result.Errors.Select(e => e.Description);
+                    return BadRequest(new RegisterUserResponseDto { Errors = errors});
+                }
+                return StatusCode(201);
             }
-            return StatusCode(201);
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
+            {
+                if (sqlEx.Number == 2627 || sqlEx.Number == 2601)
+                {
+                    return BadRequest(new RegisterUserResponseDto { Errors = ["The email '" + input.Email +"' is already taken." ] });
+                }
+
+                return StatusCode(500, "An unexpected error occurred.");
+            }
+
         }
 
         [HttpPost("authenticate")]
@@ -69,28 +85,10 @@ namespace BlogApp.Controllers
                 return NotFound("User not found");
             }
             await _userManager.DeleteAsync(user);
-            return Ok("User deleted successfully");
-        }
-
-        [HttpGet]
-        [Route("{id}")]
-        public IActionResult GetUserById(string id)
-        {
-            var user = _userManager.FindByIdAsync(id).Result;
-
-            if (user == null)
+            return Ok(new
             {
-                return NotFound("User not found");
-            }
-            var resp = new GetProfileDto()
-            {
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                DateOfBirth = user.DateOfBirth,
-                ProfilePhoto = user.ProfilePhoto,
-                UserName = user.UserName
-            };
-            return Ok(resp);
+                Message = "ok"
+            });
         }
 
         [HttpGet]
@@ -141,20 +139,34 @@ namespace BlogApp.Controllers
                 user.Email = input.Email;
             }
             if (input.ProfilePhoto != null) {
-                user.ProfilePhoto = Convert.FromBase64String(input.ProfilePhoto);
+                string base64Data = input.ProfilePhoto.Substring(input.ProfilePhoto.IndexOf(',') + 1);
+                user.ProfilePhoto = Convert.FromBase64String(base64Data);
             }
             if (input.UserName != null)
             {
                 user.UserName = input.UserName;
             }
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded)
+            try
             {
-                var errors = result.Errors.Select(e => e.Description);
-                return BadRequest(new { Errors = errors });
+                var result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                {
+                    var errors = result.Errors.Select(e => e.Description);
+                    return BadRequest(new RegisterUserResponseDto { Errors = errors });
+                }
+                var token = _jwtHandler.CreateToken(user);
+                return Ok(new { Token = token });
             }
-            var token = _jwtHandler.CreateToken(user);
-            return Ok(new { Token = token });
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
+            {
+                if (sqlEx.Number == 2627 || sqlEx.Number == 2601)
+                {
+                    return BadRequest(new RegisterUserResponseDto { Errors = ["The email '" + input.Email + "' is already taken."] });
+                }
+
+                return StatusCode(500, "An unexpected error occurred.");
+            }
+            
         }
 
         [HttpPut]

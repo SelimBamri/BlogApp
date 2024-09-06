@@ -20,6 +20,10 @@ namespace BlogApp.Data
                 .WithMany()
                 .HasForeignKey(a => a.AuthorFk)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
         }
 
         public DbSet<Article> Articles { get; set; }

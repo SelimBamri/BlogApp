@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BlogApp.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20240901212051_initial")]
+    [Migration("20240903162710_initial")]
     partial class initial
     {
         /// <inheritdoc />
@@ -34,7 +34,6 @@ namespace BlogApp.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AuthorFk")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<byte[]>("Banner")
@@ -288,6 +287,10 @@ namespace BlogApp.Migrations
                     b.Property<byte[]>("ProfilePhoto")
                         .HasColumnType("varbinary(max)");
 
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasFilter("[Email] IS NOT NULL");
+
                     b.HasDiscriminator().HasValue("User");
                 });
 
@@ -296,8 +299,7 @@ namespace BlogApp.Migrations
                     b.HasOne("BlogApp.Models.Entities.User", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorFk")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Author");
                 });
